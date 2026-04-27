@@ -120,3 +120,44 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-neon-cyan/50;
 }
+
+/* ============================================
+   赛博增强模式 (Cyber Mode)
+   ============================================ */
+.cyber-mode {
+  /* 增强霓虹发光效果 */
+  --tw-shadow-colored: 0 0 15px currentColor;
+}
+
+.cyber-mode body {
+  background-image: 
+    radial-gradient(ellipse at top, rgba(0, 212, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom, rgba(180, 74, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at center, rgba(0, 255, 136, 0.05) 0%, transparent 70%);
+  background-color: #0a0a0f;
+}
+
+.cyber-mode .cyber-text-green {
+  text-shadow: 
+    0 0 5px currentColor, 
+    0 0 10px currentColor,
+    0 0 20px currentColor;
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.cyber-mode .cyber-card {
+  box-shadow: 
+    0 0 10px rgba(0, 212, 255, 0.2),
+    0 0 20px rgba(0, 212, 255, 0.1),
+    inset 0 0 10px rgba(0, 212, 255, 0.05);
+}
+
+.cyber-mode .cyber-button-primary {
+  box-shadow: 
+    0 0 10px rgba(0, 255, 136, 0.3),
+    0 0 20px rgba(0, 255, 136, 0.1);
+}
+
+.cyber-mode .progress-bar-fill {
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.7);
+}

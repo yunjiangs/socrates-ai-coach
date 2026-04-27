@@ -12,6 +12,7 @@ import LoginPage from './pages/LoginPage';
 
 // 组件
 import Navbar from './components/Navbar';
+import ThemeToggle from './components/ThemeToggle';
 
 // 创建 query client
 const queryClient = new QueryClient({
@@ -29,6 +30,7 @@ function App() {
       <BrowserRouter>
         <div className="min-h-screen bg-cyber-dark">
           <Navbar />
+          <ThemeToggle />
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/task/:taskId" element={<TaskPage />} />
