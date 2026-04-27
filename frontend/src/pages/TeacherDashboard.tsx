@@ -1,51 +1,232 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-export default function TeacherDashboard() {
-  // TODO: 获取老师班级的学生数据
-  
-  const mockStudents = [
-    { id: 1, nickname: '张小明', tasks_completed: 5, total_time_minutes: 120 },
-    { id: 2, nickname: '李小红', tasks_completed: 3, total_time_minutes: 80 },
-    { id: 3, nickname: '王小宝', tasks_completed: 7, total_time_minutes: 150 },
-  ];
+interface Student {
+  id: number;
+  username: string;
+  nickname: string;
+  tasks_completed?: number;
+  total_time_minutes?: number;
+}
 
-  const mockAlerts = [
-    { id: 1, student_name: '张小明', task_title: '两数之和', message: '在"哈希表"逻辑上停留超过10分钟', is_read: false },
-    { id: 2, student_name: '李小红', task_title: '斐波那契', message: '验证题尝试了5次才通过', is_read: false },
-  ];
+interface Alert {
+  id: number;
+  student_id: number;
+  student_name: string;
+  task_id: number;
+  task_title: string;
+  message: string;
+  alert_type: string;
+  stay_minutes?: number;
+  attempt_count?: number;
+  is_read: boolean;
+  created_at: string;
+}
+
+interface ClassData {
+  id: number;
+  name: string;
+  student_count: number;
+}
+
+interface StatsData {
+  total_students: number;
+  tasks_completed: number;
+  total_time_minutes: number;
+  avg_pass_rate: number;
+}
+
+export default function TeacherDashboard() {
+  const queryClient = useQueryClient();
+  const [teacherId, setTeacherId] = useState<number>(1); // 演示用
+
+  // 获取班级数据
+  const { data: classData } = useQuery<ClassData>({
+    queryKey: ['class', teacherId],
+    queryFn: async () => {
+      // 演示：返回固定班级
+      return { id: 1, name: '信奥入门班', student_count: 2 };
+    },
+    enabled: !!teacherId,
+  });
+
+  // 获取预警列表
+  const { data: alertsData, refetch: refetchAlerts } = useQuery<{ alerts: Alert[] }>({
+    queryKey: ['alerts', teacherId],
+    queryFn: async () => {
+      // 演示：返回模拟数据
+      return {
+        alerts: [
+          { 
+            id: 1, 
+            student_id: 2, 
+            student_name: '小明同学', 
+            task_id: 1, 
+            task_title: '两数之和', 
+            message: '在"哈希表"逻辑上停留超过10分钟',
+            alert_type: 'long_time',
+            stay_minutes: 12,
+            attempt_count: 3,
+            is_read: false,
+            created_at: new Date().toISOString()
+          },
+          { 
+            id: 2, 
+            student_id: 3, 
+            student_name: '小红同学', 
+            task_id: 2, 
+            task_title: '斐波那契', 
+            message: '验证题尝试了5次才通过',
+            alert_type: 'failed_many',
+            stay_minutes: 8,
+            attempt_count: 5,
+            is_read: false,
+            created_at: new Date().toISOString()
+          },
+        ] as Alert[]
+      };
+    },
+    enabled: !!teacherId,
+  });
+
+  // 获取学生列表
+  const { data: studentsData, refetch: refetchStudents } = useQuery<{ students: Student[] }>({
+    queryKey: ['class-students', classData?.id],
+    queryFn: async () => {
+      // 演示：返回模拟学生数据
+      return {
+        students: [
+          { id: 2, username: 'demo_student1', nickname: '小明同学', tasks_completed: 1, total_time_minutes: 45 },
+          { id: 3, username: 'demo_student2', nickname: '小红同学', tasks_completed: 1, total_time_minutes: 30 },
+        ] as Student[]
+      };
+    },
+    enabled: !!classData?.id,
+  });
+
+  // 获取班级统计
+  const { data: statsData } = useQuery<StatsData>({
+    queryKey: ['class-stats', classData?.id],
+    queryFn: async () => {
+      // 演示：返回模拟统计
+      const students = studentsData?.students || [];
+      return {
+        total_students: students.length,
+        tasks_completed: students.reduce((sum, s) => sum + (s.tasks_completed || 0), 0),
+        total_time_minutes: students.reduce((sum, s) => sum + (s.total_time_minutes || 0), 0),
+        avg_pass_rate: 78,
+      };
+    },
+    enabled: !!studentsData,
+  });
+
+  // 标记预警已读
+  const markReadMutation = useMutation({
+    mutationFn: async (alertId: number) => {
+      await axios.post(`${API_BASE}/stats/alerts/read`, { alert_id: alertId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts'] });
+    },
+  });
+
+  const alerts = alertsData?.alerts || [];
+  const students = studentsData?.students || [];
+  const unreadAlerts = alerts.filter(a => !a.is_read);
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold cyber-text-green mb-8">🎛️ 老师后台</h1>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold cyber-text-green">🎛️ 老师后台</h1>
+          <p className="text-gray-400 mt-1">{classData?.name || '加载中...'}</p>
+        </div>
+        <button 
+          onClick={() => {
+            refetchAlerts();
+            refetchStudents();
+          }}
+          className="cyber-button text-sm"
+        >
+          🔄 刷新数据
+        </button>
+      </div>
+
+      {/* 概览卡片 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="cyber-card p-4 text-center">
+          <div className="text-3xl font-bold text-neon-cyan">{statsData?.total_students || 0}</div>
+          <div className="text-sm text-gray-400">学生数</div>
+        </div>
+        <div className="cyber-card p-4 text-center">
+          <div className="text-3xl font-bold text-neon-green">{statsData?.tasks_completed || 0}</div>
+          <div className="text-sm text-gray-400">完成题目</div>
+        </div>
+        <div className="cyber-card p-4 text-center">
+          <div className="text-3xl font-bold text-neon-purple">{statsData?.total_time_minutes || 0}</div>
+          <div className="text-sm text-gray-400">总用时(分钟)</div>
+        </div>
+        <div className="cyber-card p-4 text-center">
+          <div className="text-3xl font-bold text-neon-pink">{statsData?.avg_pass_rate || 0}%</div>
+          <div className="text-sm text-gray-400">平均通过率</div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 预警列表 */}
         <div className="cyber-card p-6">
-          <h2 className="text-xl font-bold text-neon-pink mb-4">🚨 需要关注</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-neon-pink">🚨 需要关注</h2>
+            {unreadAlerts.length > 0 && (
+              <span className="px-2 py-1 text-xs rounded-full bg-neon-pink/20 text-neon-pink">
+                {unreadAlerts.length} 条未读
+              </span>
+            )}
+          </div>
           
-          {mockAlerts.length > 0 ? (
+          {alerts.length > 0 ? (
             <div className="space-y-4">
-              {mockAlerts.map((alert) => (
+              {alerts.map((alert) => (
                 <div 
                   key={alert.id} 
-                  className={`p-4 rounded-lg ${
-                    alert.is_read ? 'bg-cyber-dark' : 'bg-neon-pink/10 border border-neon-pink/30'
+                  className={`p-4 rounded-lg transition-all ${
+                    alert.is_read 
+                      ? 'bg-cyber-dark/50 opacity-60' 
+                      : 'bg-cyber-dark border border-neon-pink/30 hover:border-neon-pink/50'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-neon-cyan">{alert.student_name}</span>
-                    <span className="text-xs text-gray-500">{alert.task_title}</span>
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <span className="font-medium text-neon-cyan">{alert.student_name}</span>
+                      <span className="text-gray-500 text-sm ml-2">@{alert.task_title}</span>
+                    </div>
+                    {!alert.is_read && (
+                      <button
+                        onClick={() => markReadMutation.mutate(alert.id)}
+                        className="text-xs text-gray-400 hover:text-neon-cyan"
+                      >
+                        ✓ 已读
+                      </button>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-400">{alert.message}</p>
+                  <p className="text-sm text-gray-400 mb-2">{alert.message}</p>
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    {alert.stay_minutes && <span>⏱️ {alert.stay_minutes}分钟</span>}
+                    {alert.attempt_count && <span>🔄 {alert.attempt_count}次尝试</span>}
+                    <span>📅 {new Date(alert.created_at).toLocaleDateString()}</span>
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-500">暂无预警</p>
+            <div className="text-center py-8">
+              <div className="text-4xl mb-4">🎉</div>
+              <p className="text-gray-400">暂无预警，学生学习状态良好！</p>
+            </div>
           )}
         </div>
 
@@ -53,49 +234,66 @@ export default function TeacherDashboard() {
         <div className="cyber-card p-6">
           <h2 className="text-xl font-bold text-neon-cyan mb-4">📊 学生概览</h2>
           
-          <div className="space-y-4">
-            {mockStudents.map((student) => (
-              <div 
-                key={student.id}
-                className="flex items-center justify-between p-4 rounded-lg bg-cyber-dark"
-              >
-                <div>
-                  <div className="font-medium text-neon-green">{student.nickname}</div>
-                  <div className="text-xs text-gray-500">
-                    完成 {student.tasks_completed} 题 | 用时 {student.total_time_minutes}分钟
+          {students.length > 0 ? (
+            <div className="space-y-4">
+              {students.map((student) => (
+                <div 
+                  key={student.id}
+                  className="flex items-center justify-between p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-neon-cyan to-neon-green flex items-center justify-center text-lg">
+                      {student.nickname?.charAt(0) || '?'}
+                    </div>
+                    <div>
+                      <div className="font-medium text-neon-green">{student.nickname}</div>
+                      <div className="text-xs text-gray-500">
+                        完成 {student.tasks_completed || 0} 题 | 用时 {student.total_time_minutes || 0}分钟
+                      </div>
+                    </div>
                   </div>
+                  <button className="text-neon-cyan hover:underline text-sm">
+                    查看详情 →
+                  </button>
                 </div>
-                <button className="text-neon-cyan hover:underline text-sm">
-                  查看详情 →
-                </button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="text-4xl mb-4">📝</div>
+              <p className="text-gray-400">暂无学生数据</p>
+            </div>
+          )}
         </div>
 
-        {/* 班级整体数据 */}
+        {/* 快捷操作 */}
         <div className="cyber-card p-6 lg:col-span-2">
-          <h2 className="text-xl font-bold text-neon-purple mb-4">📈 班级整体数据</h2>
+          <h2 className="text-xl font-bold text-neon-purple mb-4">⚡ 快捷操作</h2>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-cyber-dark rounded-lg">
-              <div className="text-3xl font-bold text-neon-cyan">3</div>
-              <div className="text-sm text-gray-500">学生数</div>
-            </div>
-            <div className="text-center p-4 bg-cyber-dark rounded-lg">
-              <div className="text-3xl font-bold text-neon-green">15</div>
-              <div className="text-sm text-gray-500">完成题目</div>
-            </div>
-            <div className="text-center p-4 bg-cyber-dark rounded-lg">
-              <div className="text-3xl font-bold text-neon-purple">350</div>
-              <div className="text-sm text-gray-500">总用时(分钟)</div>
-            </div>
-            <div className="text-center p-4 bg-cyber-dark rounded-lg">
-              <div className="text-3xl font-bold text-neon-pink">78%</div>
-              <div className="text-sm text-gray-500">平均通过率</div>
-            </div>
+            <button className="p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 text-center transition-colors">
+              <div className="text-2xl mb-2">📝</div>
+              <div className="text-sm text-gray-300">添加题目</div>
+            </button>
+            <button className="p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 text-center transition-colors">
+              <div className="text-2xl mb-2">📤</div>
+              <div className="text-sm text-gray-300">批量导入</div>
+            </button>
+            <button className="p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 text-center transition-colors">
+              <div className="text-2xl mb-2">📊</div>
+              <div className="text-sm text-gray-300">导出报告</div>
+            </button>
+            <button className="p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 text-center transition-colors">
+              <div className="text-2xl mb-2">⚙️</div>
+              <div className="text-sm text-gray-300">系统设置</div>
+            </button>
           </div>
         </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-gray-500 text-sm">
+        <p>💡 提示：点击"已读"可将预警标记处理</p>
       </div>
     </div>
   );
