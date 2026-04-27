@@ -9,8 +9,6 @@
 [![Vue3](https://img.shields.io/badge/Vue3-3.x-green.svg)](https://vuejs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-cyan.svg)](https://fastapi.tiangolo.com/)
 
-[🇨🇳 中文](./README.md) | [🇺🇸 English](./README_EN.md)
-
 ---
 
 ## 📌 项目简介
@@ -64,9 +62,9 @@
 
 ### 2. ✅ "懂没懂"验证开关
 
-- 学生必须输入正确思路
-- AI判定"逻辑通过"后，才解锁下一步
-- 如果卡住，AI主动反向Push
+- 学生必须输入正确思路，AI判定通过后才能解锁下一步
+- 如果卡住，AI主动反向Push引导
+- 强制学生思考，而不是被动看答案
 
 ### 3. 📊 思维图谱报告
 
@@ -92,12 +90,12 @@
 │         闯关式UI + TailwindCSS          │
 ├─────────────────────────────────────────┤
 │              后端 FastAPI               │
-│        Python 3.9+ + SQLAlchemy         │
+│        Python 3.9+ + SQLAlchemy        │
 ├─────────────────────────────────────────┤
 │              数据库 MySQL 8.0            │
 ├─────────────────────────────────────────┤
 │              AI 模型 (可选)              │
-│       GPT-4 / Claude / 本地模型         │
+│       GPT-4 / Claude / 本地模型        │
 └─────────────────────────────────────────┘
 
 部署方式：Docker 一键部署，5分钟上线
@@ -120,9 +118,6 @@ git clone https://github.com/yunjiangs/socrates-ai-coach.git
 cd socrates-ai-coach/docker
 
 # 一键启动
-# Windows
-./start.bat
-# 或
 docker-compose up -d
 
 # 访问
@@ -157,44 +152,18 @@ npm run dev
 ├── frontend/             # Vue3前端完整源码
 ├── database/             # MySQL数据库脚本
 ├── docker/               # Docker部署配置
-├── prompts/              # AI Prompt模板
-└── docs/                 # 完整文档
+└── prompts/             # AI Prompt模板
 ```
 
-**核心开源，允许商用，无需授权。**
-
----
-
-## 🎁 部署福利
-
-**加群免费领取：**
-- ✅ Docker一键部署包
-- ✅ MySQL数据库脚本
-- ✅ Vue3前端源码
-- ✅ FastAPI后端源码
-- ✅ AI Prompt调教指南
-- ✅ 各年级课件模板
-
-**入群方式：See Contact**
-
----
-
-## 💰 盈利模式（供开发者参考）
-
-| 服务 | 价格 | 说明 |
-|------|------|------|
-| 代部署服务 | ¥299/次 | 不会部署的老师/机构 |
-| 专业版插件 | ¥99-299 | 多校区管理、家长端 |
-| 技术保障包 | ¥599/年 | 一年期运维+更新 |
-| 定制二开 | 面议 | 学校/教育局对接 |
+**MIT License - 完全开源，可商用，无需授权。**
 
 ---
 
 ## 👥 适用人群
 
-- **信息学奥赛老师** - 减轻讲题压力，让学生会思考
-- **少儿编程机构** - 提高学生自学能力，减少助教依赖
-- **自学编程的学生** - 有个24小时AI助教，不懂就问
+- **信息学奥赛老师** - 减轻讲题压力，让学生真正理解
+- **少儿编程机构** - 提高学生自学能力
+- **自学编程的学生** - 有个24小时AI助教
 - **家有编程娃的家长** - 不用报班也能陪孩子学
 
 ---
@@ -205,7 +174,6 @@ npm run dev
 - [ ] AI拆解引擎接入GPT/Claude
 - [ ] 历年CSP-J/S真题库
 - [ ] 移动端App（Capacitor）
-- [ ] 多语言支持
 
 ---
 
@@ -217,7 +185,7 @@ npm run dev
 
 ## 📄 许可证
 
-MIT License - 可商用，无需授权
+MIT License - 完全开源，可自由使用、修改和商用。
 
 ---
 
