@@ -8,6 +8,7 @@ import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import { routes as taskRoutes } from './routes/tasks.js';
+import { importRoutes } from './routes/import.js';
 import { routes as authRoutes } from './routes/auth.js';
 import { routes as progressRoutes } from './routes/progress.js';
 import { routes as statsRoutes } from './routes/stats.js';
@@ -51,6 +52,7 @@ fastify.get('/health', async () => {
 
 // ========== API 路由 ==========
 fastify.register(taskRoutes, { prefix: '/api/tasks' });
+fastify.register(importRoutes, { prefix: '/api/tasks' });
 fastify.register(authRoutes, { prefix: '/api/auth' });
 fastify.register(progressRoutes, { prefix: '/api/progress' });
 fastify.register(statsRoutes, { prefix: '/api/stats' });

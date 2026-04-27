@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import ImportTaskModal from '../components/ImportTaskModal';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -42,6 +43,7 @@ interface StatsData {
 export default function TeacherDashboard() {
   const queryClient = useQueryClient();
   const [teacherId, setTeacherId] = useState<number>(1); // 演示用
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // 获取班级数据
   const { data: classData } = useQuery<ClassData>({
@@ -275,7 +277,10 @@ export default function TeacherDashboard() {
               <div className="text-2xl mb-2">📝</div>
               <div className="text-sm text-gray-300">添加题目</div>
             </button>
-            <button className="p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 text-center transition-colors">
+            <button 
+              onClick={() => setShowImportModal(true)}
+              className="p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 text-center transition-colors cursor-pointer"
+            >
               <div className="text-2xl mb-2">📤</div>
               <div className="text-sm text-gray-300">批量导入</div>
             </button>
@@ -290,6 +295,15 @@ export default function TeacherDashboard() {
           </div>
         </div>
       </div>
+
+      {/* 导入Modal */}
+      <ImportTaskModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        }}
+      />
 
       {/* Footer */}
       <div className="mt-8 text-center text-gray-500 text-sm">
