@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // 页面组件
 import HomePage from './pages/HomePage';
 import TaskPage from './pages/TaskPage';
 import StudentPage from './pages/StudentPage';
+import StudentProgress from './pages/StudentProgress';
 import TeacherDashboard from './pages/TeacherDashboard';
 import LoginPage from './pages/LoginPage';
 
@@ -32,6 +33,7 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/task/:taskId" element={<TaskPage />} />
             <Route path="/student" element={<StudentPage />} />
+            <Route path="/student/progress" element={<StudentProgress />} />
             <Route path="/teacher" element={<TeacherDashboard />} />
             <Route path="/login" element={<LoginPage />} />
           </Routes>
