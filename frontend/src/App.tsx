@@ -1,0 +1,44 @@
+import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// 页面组件
+import HomePage from './pages/HomePage';
+import TaskPage from './pages/TaskPage';
+import StudentPage from './pages/StudentPage';
+import TeacherDashboard from './pages/TeacherDashboard';
+import LoginPage from './pages/LoginPage';
+
+// 组件
+import Navbar from './components/Navbar';
+
+// 创建 query client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5分钟
+      retry: 1,
+    },
+  },
+});
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <div className="min-h-screen bg-cyber-dark">
+          <Navbar />
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/task/:taskId" element={<TaskPage />} />
+            <Route path="/student" element={<StudentPage />} />
+            <Route path="/teacher" element={<TeacherDashboard />} />
+            <Route path="/login" element={<LoginPage />} />
+          </Routes>
+        </div>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+}
+
+export default App;

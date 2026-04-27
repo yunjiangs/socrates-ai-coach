@@ -1,0 +1,32 @@
+{
+  "name": "socrates-coach-backend",
+  "version": "1.0.0",
+  "description": "Socrates Coach - 信奥AI启发式导学平台后端",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "docker": "node_modules/.bin/ts-node src/index.ts"
+  },
+  "dependencies": {
+    "fastify": "^4.26.0",
+    "@fastify/cors": "^8.5.0",
+    "@fastify/jwt": "^8.0.0",
+    "@fastify/rate-limit": "^9.1.0",
+    "mysql2": "^3.9.0",
+    "langchain": "^0.1.0",
+    "openai": "^4.26.0",
+    "zod": "^3.22.4",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/bcrypt": "^5.0.2",
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.0",
+    "vitest": "^1.2.0"
+  }
+}

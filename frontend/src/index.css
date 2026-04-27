@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 赛博修仙风格基础样式 */
+body {
+  @apply bg-cyber-dark text-gray-100 font-mono;
+  background-image: 
+    radial-gradient(ellipse at top, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom, rgba(180, 74, 255, 0.05) 0%, transparent 50%);
+  min-height: 100vh;
+}
+
+/* 发光文字效果 */
+.cyber-text {
+  @apply text-neon-cyan;
+  text-shadow: 0 0 5px currentColor, 0 0 10px currentColor;
+}
+
+.cyber-text-green {
+  @apply text-neon-green;
+  text-shadow: 0 0 5px currentColor, 0 0 10px currentColor;
+}
+
+/* 霓虹边框 */
+.cyber-border {
+  @apply border border-neon-cyan/30;
+  box-shadow: 
+    0 0 5px rgba(0, 212, 255, 0.3),
+    inset 0 0 5px rgba(0, 212, 255, 0.1);
+}
+
+/* 卡片样式 */
+.cyber-card {
+  @apply bg-cyber-card rounded-lg cyber-border;
+}
+
+/* 进度条（渡劫进度） */
+.progress-bar {
+  @apply h-2 bg-cyber-border rounded-full overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full bg-gradient-to-r from-neon-cyan to-neon-green;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+}
+
+/* 按钮样式 */
+.cyber-button {
+  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+  @apply bg-gradient-to-r from-neon-cyan/20 to-neon-green/20;
+  @apply border border-neon-cyan/50;
+  @apply hover:from-neon-cyan/30 hover:to-neon-green/30;
+  @apply hover:shadow-lg hover:shadow-neon-cyan/20;
+  @apply active:scale-95;
+}
+
+.cyber-button-primary {
+  @apply cyber-button text-neon-green;
+}
+
+/* 输入框 */
+.cyber-input {
+  @apply w-full px-4 py-2 rounded-lg;
+  @apply bg-cyber-dark border border-neon-cyan/30;
+  @apply text-gray-100 placeholder-gray-500;
+  @apply focus:outline-none focus:border-neon-cyan/70;
+  @apply transition-colors duration-200;
+}
+
+/* 锦囊卡片 */
+.jin-nang {
+  @apply relative p-4 rounded-lg cyber-card;
+  @apply border-l-4 border-neon-purple;
+  @apply hover:border-neon-cyan transition-colors duration-200;
+}
+
+.jin-nang::before {
+  content: '📜';
+  @apply absolute -top-3 left-4 px-2 text-sm bg-cyber-card;
+}
+
+/* 锁定状态 */
+.locked {
+  @apply opacity-50 blur-sm;
+  filter: blur(2px);
+}
+
+/* 解锁动画 */
+.unlock-animation {
+  animation: unlock-glow 0.5s ease-out;
+}
+
+@keyframes unlock-glow {
+  0% {
+    box-shadow: 0 0 0 rgba(0, 255, 136, 0);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 255, 136, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(0, 255, 136, 0);
+  }
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-cyber-dark;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-neon-cyan/30 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-neon-cyan/50;
+}

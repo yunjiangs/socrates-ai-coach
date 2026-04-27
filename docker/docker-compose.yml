@@ -1,0 +1,75 @@
+# Socrates Coach - Docker Compose Configuration
+# 赛博修仙风格信奥AI导学平台
+
+version: '3.8'
+
+services:
+  # ========== MySQL 数据库 ==========
+  db:
+    image: mysql:8.0
+    container_name: socrates_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: socrates_root_2024
+      MYSQL_DATABASE: socrates_db
+      MYSQL_USER: socrates
+      MYSQL_PASSWORD: socrates_pass_2024
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - socrates_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # ========== Backend API (Fastify + Node.js) ==========
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: socrates_backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: socrates
+      DB_PASSWORD: socrates_pass_2024
+      DB_NAME: socrates_db
+      JWT_SECRET: socrates-jwt-secret-2024
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - socrates_network
+
+  # ========== Frontend (React + Vite) ==========
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: socrates_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - socrates_network
+
+networks:
+  socrates_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
