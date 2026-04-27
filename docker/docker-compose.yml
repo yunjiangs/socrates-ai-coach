@@ -9,11 +9,13 @@ services:
     image: mysql:8.0
     container_name: socrates_mysql
     restart: unless-stopped
+    env_file:
+      - ../.env
     environment:
-      MYSQL_ROOT_PASSWORD: socrates_root_2024
-      MYSQL_DATABASE: socrates_db
-      MYSQL_USER: socrates
-      MYSQL_PASSWORD: socrates_pass_2024
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-socrates_root_2024}
+      MYSQL_DATABASE: ${DB_NAME:-socrates_db}
+      MYSQL_USER: ${DB_USER:-socrates}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-socrates_pass_2024}
     ports:
       - "3306:3306"
     volumes:
@@ -33,15 +35,17 @@ services:
       dockerfile: Dockerfile
     container_name: socrates_backend
     restart: unless-stopped
+    env_file:
+      - ../.env
     environment:
       NODE_ENV: production
       PORT: 3001
       DB_HOST: db
       DB_PORT: 3306
-      DB_USER: socrates
-      DB_PASSWORD: socrates_pass_2024
-      DB_NAME: socrates_db
-      JWT_SECRET: socrates-jwt-secret-2024
+      DB_USER: ${DB_USER:-socrates}
+      DB_PASSWORD: ${DB_PASSWORD:-socrates_pass_2024}
+      DB_NAME: ${DB_NAME:-socrates_db}
+      JWT_SECRET: ${JWT_SECRET:-socrates-jwt-secret-2024}
       AI_PROVIDER: ${AI_PROVIDER:-openai}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
