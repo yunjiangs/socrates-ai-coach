@@ -1,0 +1,78 @@
+# 苏格拉底AI教练 - Docker一键部署配置
+# Socrates AI Coach - One-Click Docker Deployment
+
+version: '3.8'
+
+services:
+  # ========== MySQL 数据库 ==========
+  db:
+    image: mysql:8.0
+    container_name: socrates_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: socrates2024
+      MYSQL_DATABASE: socrates_db
+      MYSQL_USER: socrates
+      MYSQL_PASSWORD: socrates2024
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - socrates_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # ========== 后端 API (FastAPI) ==========
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: socrates_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql+pymysql://socrates:socrates2024@db:3306/socrates_db
+      SECRET_KEY: socrates-secret-key-change-in-production
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - socrates_network
+    volumes:
+      - ./backend:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      timeout: 10s
+      retries: 5
+
+  # ========== 前端 (Vue3) ==========
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: socrates_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - socrates_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      timeout: 5s
+      retries: 3
+
+networks:
+  socrates_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
