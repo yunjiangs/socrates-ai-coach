@@ -1,8 +1,6 @@
 # Socrates Coach - Docker Compose Configuration
 # 赛博修仙风格信奥AI导学平台
 
-version: '3.8'
-
 services:
   # ========== MySQL 数据库 ==========
   db:

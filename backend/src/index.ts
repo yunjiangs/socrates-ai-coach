@@ -12,6 +12,7 @@ import { importRoutes } from './routes/import.js';
 import { routes as authRoutes } from './routes/auth.js';
 import { routes as progressRoutes } from './routes/progress.js';
 import { routes as statsRoutes } from './routes/stats.js';
+import { routes as achievementRoutes } from './routes/achievements.js';
 import { aiBreakdownRouter } from './routes/ai.js';
 
 const PORT = parseInt(process.env.PORT || '3001');
@@ -56,6 +57,7 @@ fastify.register(importRoutes, { prefix: '/api/tasks' });
 fastify.register(authRoutes, { prefix: '/api/auth' });
 fastify.register(progressRoutes, { prefix: '/api/progress' });
 fastify.register(statsRoutes, { prefix: '/api/stats' });
+fastify.register(achievementRoutes, { prefix: '/api/achievements' });
 fastify.register(aiBreakdownRouter, { prefix: '/api/ai' });
 
 // ========== 错误处理 ==========

@@ -121,3 +121,58 @@ export interface TeacherAlert {
   is_read: boolean;
   created_at: string;
 }
+
+// ========== 成就相关 ==========
+export interface Achievement {
+  id: number;
+  code: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: 'learning' | 'speed' | 'streak' | 'mastery' | 'social';
+  condition_type: string;
+  condition_value: number;
+  xp_reward: number;
+  display_order: number;
+}
+
+export interface StudentAchievement extends Achievement {
+  unlocked_at: string;
+  progress: number;
+}
+
+export interface StudentXP {
+  total_xp: number;
+  level: number;
+  xp_in_current_level: number;
+  xp_to_next_level: number;
+  progress_percent: number;
+}
+
+export interface AchievementCheckResult {
+  new_achievements: Array<{
+    id: number;
+    code: string;
+    name: string;
+    description: string;
+    icon: string;
+    xp_reward: number;
+  }>;
+  xp: {
+    total_xp: number;
+    level: number;
+  };
+}
+
+export interface AchievementWithProgress {
+  earned: StudentAchievement[];
+  progress: Array<{
+    id: number;
+    code: string;
+    condition_type: string;
+    condition_value: number;
+    progress: number;
+    is_unlocked: boolean;
+  }>;
+  xp: StudentXP;
+}

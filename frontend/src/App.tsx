@@ -8,6 +8,7 @@ import TaskPage from './pages/TaskPage';
 import StudentPage from './pages/StudentPage';
 import StudentProgress from './pages/StudentProgress';
 import TeacherDashboard from './pages/TeacherDashboard';
+import AchievementsPage from './pages/AchievementsPage';
 import LoginPage from './pages/LoginPage';
 
 // 组件
@@ -37,6 +38,7 @@ function App() {
             <Route path="/student" element={<StudentPage />} />
             <Route path="/student/progress" element={<StudentProgress />} />
             <Route path="/teacher" element={<TeacherDashboard />} />
+            <Route path="/student/achievements" element={<AchievementsPage />} />
             <Route path="/login" element={<LoginPage />} />
           </Routes>
         </div>

@@ -4,8 +4,8 @@
  */
 
 import { z } from 'zod';
-import { ChatOpenAI } from 'langchain.chat_models';
-import { ChatAnthropic } from 'langchain.chat_models';
+import { ChatOpenAI } from '@langchain/openai';
+import { ChatAnthropic } from 'langchain/chat_models/anthropic';
 
 // ========== Zod Schema 定义 ==========
 
