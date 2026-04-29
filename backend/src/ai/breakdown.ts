@@ -249,6 +249,103 @@ class SocratesEngine {
   }
 
   /**
+   * 验证学生代码（Level 3）
+   */
+  async verifyCode(
+    studentCode: string,
+    problemDescription: string,
+    level1Model: string
+  ): Promise<{ is_correct: boolean; feedback: string }> {
+    if (!this.llm) {
+      return { is_correct: false, feedback: 'AI服务未配置' };
+    }
+
+    const prompt = `学生提交了以下代码：
+${studentCode}
+
+题目描述：
+${problemDescription}
+
+解题思路提示：
+${level1Model}
+
+请检查学生代码是否符合题目要求（逻辑正确、边界处理、命名规范）。
+只返回JSON格式：
+{"is_correct": true/false, "feedback": "具体反馈"}`;
+
+    try {
+      const response = await this.llm.invoke([
+        ['system', SYSTEM_PROMPT],
+        ['human', prompt],
+      ]);
+      return JSON.parse(response.content as string);
+    } catch (error) {
+      this.llm = null;
+      return { is_correct: false, feedback: '代码校验失败' };
+    }
+  }
+
+  /**
+   * 生成题解
+   */
+  async generateSolution(
+    problemDescription: string,
+    level1Model: string,
+    level2Pseudo: string
+  ): Promise<string> {
+    if (!this.llm) {
+      return 'AI服务未配置，无法生成题解';
+    }
+
+    const prompt = `题目：${problemDescription}
+
+解题思路：${level1Model}
+
+算法步骤：${level2Pseudo}
+
+请生成一份完整的题解，包含：代码实现、思路解释、复杂度分析。用中文回复。`;
+
+    try {
+      const response = await this.llm.invoke([
+        ['system', SYSTEM_PROMPT],
+        ['human', prompt],
+      ]);
+      return response.content as string;
+    } catch (error) {
+      return '题解生成失败';
+    }
+  }
+
+  /**
+   * 生成提示
+   */
+  async generateHint(
+    problemDescription: string,
+    level1Model: string,
+    level: string
+  ): Promise<string> {
+    if (!this.llm) {
+      return 'AI服务未配置';
+    }
+
+    const prompt = `题目：${problemDescription}
+当前级别：${level}
+解题思路：${level1Model}
+
+请生成一个引导性的提示，帮助学生自己思考出答案。不要直接给答案。`;
+
+    try {
+      const response = await this.llm.invoke([
+        ['system', SYSTEM_PROMPT],
+        ['human', prompt],
+      ]);
+      return response.content as string;
+    } catch (error) {
+      return '提示生成失败';
+    }
+  }
+
+  /**
    * 检查是否配置了AI
    */
   isConfigured(): boolean {

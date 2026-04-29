@@ -5,89 +5,65 @@ import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-interface StepData {
-  id?: number;
-  title: string;
-  content: string;
-  hint?: string;
-}
-
-interface Task {
-  id: number;
-  title: string;
-  content: string;
-  source?: string;
-  difficulty_level: number;
-  current_level: number;
-  time_limit?: number;
-  memory_limit?: number;
-  level_1?: {
-    core_model: string;
-    analogy: string;
-    real_world_example: string;
-    key_terms?: string[];
-  };
-  level_2?: {
-    steps?: StepData[];
-  };
-  level_3?: {
-    question: string;
-    options: string[];
-    explanation?: string;
-  };
-}
-
-// 难度映射
-const DIFFICULTY_MAP: Record<number, { label: string; textColor: string; bgColor: string }> = {
-  1: { label: '入门', textColor: 'text-neon-green', bgColor: 'bg-neon-green/10' },
-  2: { label: '基础', textColor: 'text-gray-400', bgColor: 'bg-gray-500/10' },
-  3: { label: '提高', textColor: 'text-purple-400', bgColor: 'bg-purple-500/10' },
-  4: { label: '进阶', textColor: 'text-orange-400', bgColor: 'bg-orange-500/10' },
-  5: { label: '竞赛', textColor: 'text-pink-400', bgColor: 'bg-pink-500/10' },
+// 难度映射：数字 → 显示文字 + 颜色
+const DIFFICULTY_MAP: Record<number, { label: string; textColor: string; bgColor: string; borderColor: string }> = {
+  1: { label: '青铜', textColor: 'text-amber-400', bgColor: 'bg-amber-400/10', borderColor: 'border-amber-400/30' },
+  2: { label: '白银', textColor: 'text-gray-300', bgColor: 'bg-gray-400/10', borderColor: 'border-gray-400/30' },
+  3: { label: '黄金', textColor: 'text-yellow-400', bgColor: 'bg-yellow-400/10', borderColor: 'border-yellow-400/30' },
+  4: { label: '钻石', textColor: 'text-cyan-300', bgColor: 'bg-cyan-300/10', borderColor: 'border-cyan-300/30' },
 };
 
-// 三级步骤配置
+// 三级步骤
 const STEPS = [
   { num: 1, label: '理解题意', emoji: '📜' },
   { num: 2, label: '拆解思路', emoji: '💡' },
   { num: 3, label: '编码实现', emoji: '💻' },
 ];
 
+// 模拟学生ID（实际应从登录态获取）
+const DEMO_STUDENT_ID = 2;
+
 export default function TaskPage() {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  
+
   const [studentAnswer, setStudentAnswer] = useState('');
   const [showHint, setShowHint] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showSolution, setShowSolution] = useState(false);
   const [staySeconds, setStaySeconds] = useState(0);
+  const [hint, setHint] = useState('');
+  const [solution, setSolution] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+  const [nextLevel, setNextLevel] = useState(0);
+  const [isFavorited, setIsFavorited] = useState(false);
   const [xpGained, setXpGained] = useState(0);
 
   // 计时器
   useEffect(() => {
-    const timer = setInterval(() => {
-      setStaySeconds(s => s + 1);
-    }, 1000);
+    const timer = setInterval(() => setStaySeconds(s => s + 1), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // 获取题目
-  const { data: task, isLoading } = useQuery<Task>({
-    queryKey: ['task', taskId],
+  // 获取题目详情
+  const { data: task, isLoading } = useQuery({
+    queryKey: ['task', taskId, DEMO_STUDENT_ID],
     queryFn: async () => {
-      const res = await axios.get(`${API_BASE}/tasks/${taskId}`);
+      const res = await axios.get(`${API_BASE}/tasks/${taskId}?student_id=${DEMO_STUDENT_ID}`);
       return res.data;
     },
     enabled: !!taskId,
   });
 
-  // 验证答案
+  // 验证答案 mutation
   const verifyMutation = useMutation({
     mutationFn: async ({ level, answer }: { level: number; answer: string }) => {
       const res = await axios.post(`${API_BASE}/progress/verify`, {
         task_id: taskId,
-        student_id: 1,
+        student_id: DEMO_STUDENT_ID,
         level,
         answer,
         stay_seconds: staySeconds,
@@ -95,12 +71,63 @@ export default function TaskPage() {
       return res.data;
     },
     onSuccess: (data) => {
-      if (data.unlocked) {
-        queryClient.invalidateQueries({ queryKey: ['task', taskId] });
-      }
-      if (data.xp) setXpGained(data.xp);
+      setFeedback(data.feedback || '');
+      setIsCorrect(data.is_correct);
+      setUnlocked(data.unlocked);
+      setNextLevel(data.next_level || 0);
+      setXpGained(data.xp_gained || 0);
       setShowFeedback(true);
       setShowHint(false);
+      if (data.is_completed) {
+        queryClient.invalidateQueries({ queryKey: ['task', taskId, DEMO_STUDENT_ID] });
+      }
+    },
+  });
+
+  // 获取提示 mutation
+  const hintMutation = useMutation({
+    mutationFn: async (level: number) => {
+      const res = await axios.post(`${API_BASE}/progress/hint`, {
+        task_id: taskId,
+        student_id: DEMO_STUDENT_ID,
+        level,
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      setHint(data.hint || '暂无提示');
+      setShowHint(true);
+      setShowFeedback(false);
+    },
+  });
+
+  // 获取题解 mutation
+  const solutionMutation = useMutation({
+    mutationFn: async () => {
+      const res = await axios.get(`${API_BASE}/progress/solution/${taskId}?student_id=${DEMO_STUDENT_ID}`);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      setSolution(data.solution || '题解暂不可用');
+      setShowSolution(true);
+    },
+    onError: (err: any) => {
+      alert(err?.response?.data?.error || '无法获取题解');
+    },
+  });
+
+  // 收藏 mutation
+  const favoriteMutation = useMutation({
+    mutationFn: async (action: 'favorite' | 'unfavorite') => {
+      const res = await axios.post(`${API_BASE}/progress/favorite`, {
+        student_id: DEMO_STUDENT_ID,
+        task_id: taskId,
+        action,
+      });
+      return res.data;
+    },
+    onSuccess: (_, action) => {
+      setIsFavorited(action === 'favorite');
     },
   });
 
@@ -115,6 +142,12 @@ export default function TaskPage() {
   const handleNextStep = () => {
     setShowFeedback(false);
     setStudentAnswer('');
+    setStaySeconds(0);
+    queryClient.invalidateQueries({ queryKey: ['task', taskId, DEMO_STUDENT_ID] });
+  };
+
+  const handleShowHint = (level: number) => {
+    hintMutation.mutate(level);
   };
 
   if (isLoading) {
@@ -134,14 +167,20 @@ export default function TaskPage() {
   }
 
   const diff = DIFFICULTY_MAP[task.difficulty_level] || DIFFICULTY_MAP[1];
-  const currentStep = Math.min(task.current_level + 1, 3);
+  const currentLevel = task.current_level || 0;
+
+  // 判断题目是否完成
+  const isCompleted = task.is_completed;
+
+  // L3 特殊：编码实现
+  const isLevel3Active = currentLevel >= 3 && !isCompleted;
 
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <button 
+          <button
             onClick={() => navigate('/')}
             className="text-gray-400 hover:text-neon-cyan text-sm mb-2"
           >
@@ -151,16 +190,23 @@ export default function TaskPage() {
             {task.source?.split(' ')[0] || 'P' + task.id} — {task.title}
           </h1>
           <div className="flex gap-2 mt-1">
-            {task.level_1 && (
-              <span className="text-xs px-2 py-0.5 rounded bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/30">
-                {diff.label}
+            <span className={`text-xs px-2 py-0.5 rounded ${diff.bgColor} ${diff.textColor} border ${diff.borderColor}`}>
+              {diff.label}
+            </span>
+            {task.knowledge_tags?.slice(0, 2).map((tag: string, idx: number) => (
+              <span key={idx} className="text-xs px-2 py-0.5 rounded bg-neon-purple/10 text-neon-purple">
+                {tag}
               </span>
-            )}
+            ))}
           </div>
         </div>
         <div className="text-right">
-          <div className="text-xs text-gray-500">当前步骤</div>
-          <div className="text-2xl font-bold cyber-text">{currentStep} / 3</div>
+          <div className="text-xs text-gray-500">
+            {currentLevel === 0 ? '未开始' : currentLevel >= 3 ? '已完成' : `进行中`}
+          </div>
+          <div className="text-2xl font-bold cyber-text">
+            {isCompleted ? '✓' : currentLevel}/3
+          </div>
         </div>
       </div>
 
@@ -168,12 +214,12 @@ export default function TaskPage() {
       <div className="cyber-card p-4 mb-6">
         <div className="flex items-center gap-4 text-xs">
           {STEPS.map((step, idx) => {
-            const isDone = task.current_level >= step.num;
-            const isActive = task.current_level + 1 === step.num;
-            const stepClass = isDone ? 'bg-neon-green text-black step-done' : 
-                              isActive ? 'bg-neon-cyan text-black step-active' : 
+            const isDone = isCompleted || currentLevel > step.num;
+            const isActive = !isCompleted && currentLevel + 1 === step.num;
+            const stepClass = isDone ? 'bg-neon-green text-black step-done' :
+                              isActive ? 'bg-neon-cyan text-black step-active' :
                               'bg-gray-700 text-gray-400';
-            
+
             return (
               <React.Fragment key={step.num}>
                 <div className="flex items-center gap-1">
@@ -186,8 +232,8 @@ export default function TaskPage() {
                 </div>
                 {idx < STEPS.length - 1 && (
                   <div className="flex-1 h-0.5 bg-cyber-border rounded">
-                    <div 
-                      className="h-full bg-neon-green rounded step-progress transition-all"
+                    <div
+                      className="h-full bg-neon-green rounded transition-all"
                       style={{ width: isDone ? '100%' : '0%' }}
                     />
                   </div>
@@ -204,50 +250,38 @@ export default function TaskPage() {
           <h2 className="text-lg font-bold text-neon-cyan mb-4">📜 题目描述</h2>
           <div className="space-y-3 text-sm text-gray-300">
             <p className="whitespace-pre-wrap">{task.content}</p>
-            
-            {task.time_limit && task.memory_limit && (
-              <div className="flex items-center gap-2 text-xs text-orange-400 mt-4">
-                <span>⚡</span>
-                <span>{task.time_limit}ms</span>
-                <span className="mx-1">/</span>
-                <span>{task.memory_limit}MB</span>
-              </div>
-            )}
           </div>
         </div>
 
         {/* 右侧：学习引导 */}
         <div className="lg:col-span-3 space-y-4">
-          {/* 锦囊卡片 */}
-          {task.current_level >= 1 && task.level_1 && (
-            <div className="cyber-card p-5 border-l-4 border-neon-purple">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-2xl">📜</span>
-                <h3 className="text-lg font-bold text-purple-400">锦囊 · 理解题意</h3>
-              </div>
-              <div className="space-y-3 text-sm text-gray-300">
-                {task.level_1.core_model && (
-                  <p><strong className="text-neon-cyan">核心模型：</strong>{task.level_1.core_model}</p>
-                )}
-                {task.level_1.analogy && (
-                  <p><strong className="text-neon-green">生活类比：</strong>{task.level_1.analogy}</p>
-                )}
-                {task.level_1.real_world_example && (
-                  <p><strong className="text-yellow-400">现实例子：</strong>{task.level_1.real_world_example}</p>
-                )}
-              </div>
+          {/* L1: 理解题意 */}
+          <div className="cyber-card p-5 border-l-4 border-neon-purple">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-2xl">📜</span>
+              <h3 className="text-lg font-bold text-purple-400">锦囊 · 理解题意</h3>
+              {currentLevel < 1 && (
+                <span className="text-xs text-gray-500 ml-2">（解锁后可见）</span>
+              )}
             </div>
-          )}
+            {task.level_1?.core_model ? (
+              <div className="space-y-3 text-sm text-gray-300">
+                <p><strong className="text-neon-cyan">核心模型：</strong>{task.level_1.core_model}</p>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">完成当前级别后解锁</p>
+            )}
+          </div>
 
-          {/* 算法拆解锦囊 */}
-          {task.current_level >= 2 && task.level_2?.steps && (
+          {/* L2: 算法拆解 */}
+          {task.level_2 && (
             <div className="cyber-card p-5 border-l-4 border-neon-purple">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-2xl">💡</span>
                 <h3 className="text-lg font-bold text-purple-400">锦囊 · 拆解思路</h3>
               </div>
               <div className="space-y-3">
-                {task.level_2.steps.map((step, idx) => (
+                {(task.level_2.steps || []).map((step: any, idx: number) => (
                   <div key={step.id || idx} className="jin-nang">
                     <h4 className="font-bold text-neon-cyan mb-2">
                       步骤 {idx + 1}: {step.title}
@@ -267,35 +301,92 @@ export default function TaskPage() {
             </div>
           )}
 
-          {/* 检查点 */}
-          {task.current_level >= 1 && (
-            <div className="cyber-card p-5 border-l-4 border-neon-cyan">
+          {/* L3: 编码实现 */}
+          {isLevel3Active && (
+            <div className="cyber-card p-5 border-l-4 border-neon-green">
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-2xl">❓</span>
-                <h3 className="text-lg font-bold text-neon-cyan">检查点 · 思考一下</h3>
+                <span className="text-2xl">💻</span>
+                <h3 className="text-lg font-bold text-neon-green">编码实现</h3>
               </div>
               <p className="text-gray-300 text-sm mb-4">
-                {task.level_3?.question || '试着解释一下你对这道题的理解。'}
+                请写出你的代码实现（可参考上方算法步骤）：
               </p>
               <textarea
-                className="cyber-input w-full h-20 text-sm"
-                placeholder="在这里写下你的思考或答案..."
+                className="cyber-input w-full h-32 font-mono text-sm"
+                placeholder="// 在这里输入你的代码..."
                 value={studentAnswer}
                 onChange={(e) => setStudentAnswer(e.target.value)}
               />
               <div className="flex gap-3 mt-3">
-                <button 
-                  onClick={() => handleSubmit(task.current_level)}
+                <button
+                  onClick={() => handleSubmit(3)}
+                  disabled={verifyMutation.isPending}
+                  className="cyber-button-primary flex-1"
+                >
+                  {verifyMutation.isPending ? '✨ 校验中...' : '✅ 确认代码'}
+                </button>
+                <button
+                  onClick={() => handleShowHint(3)}
+                  className="cyber-button text-sm"
+                >
+                  💡 需要提示
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 检查点（Level 1 & 2 的答题区） */}
+          {!isLevel3Active && currentLevel >= 1 && !isCompleted && (
+            <div className="cyber-card p-5 border-l-4 border-neon-cyan">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-2xl">❓</span>
+                <h3 className="text-lg font-bold text-neon-cyan">
+                  检查点 · {currentLevel === 1 ? '理解题意' : '拆解思路'}
+                </h3>
+              </div>
+
+              {task.level_3?.question ? (
+                <>
+                  <p className="text-gray-300 text-sm mb-4">{task.level_3.question}</p>
+                  <div className="space-y-2 mb-4">
+                    {task.level_3.options?.map((option: string, idx: number) => (
+                      <button
+                        key={idx}
+                        onClick={() => setStudentAnswer(option)}
+                        className={`w-full text-left p-3 rounded-lg border transition-all text-sm ${
+                          studentAnswer === option
+                            ? 'border-neon-cyan bg-neon-cyan/10 text-white'
+                            : 'border-gray-700 hover:border-gray-500 text-gray-300'
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <textarea
+                  className="cyber-input w-full h-20 text-sm"
+                  placeholder="在这里写下你的思考或答案..."
+                  value={studentAnswer}
+                  onChange={(e) => setStudentAnswer(e.target.value)}
+                />
+              )}
+
+              <div className="flex gap-3 mt-3">
+                <button
+                  onClick={() => handleSubmit(currentLevel)}
                   disabled={verifyMutation.isPending}
                   className="cyber-button-primary flex-1"
                 >
                   {verifyMutation.isPending ? '✨ 验证中...' : '✨ 确认回答'}
                 </button>
-                <button 
-                  onClick={() => { setShowHint(!showHint); setShowFeedback(false); }}
+                <button
+                  onClick={() => handleShowHint(currentLevel)}
+                  disabled={hintMutation.isPending}
                   className="cyber-button text-sm"
                 >
-                  💡 需要提示
+                  {hintMutation.isPending ? '...' : '💡 需要提示'}
                 </button>
               </div>
             </div>
@@ -308,17 +399,25 @@ export default function TaskPage() {
                 <span className="text-2xl">🤖</span>
                 <h3 className="text-lg font-bold text-neon-green">AI 反馈</h3>
               </div>
-              <p className="text-gray-300 text-sm">
-                🎉 回答正确！你的思考很清晰。
-                {xpGained > 0 && <span className="text-neon-green"> +{xpGained} XP</span>}
-              </p>
+              <p className="text-gray-300 text-sm">{feedback}</p>
+              {xpGained > 0 && (
+                <p className="text-neon-green text-sm mt-1">+{xpGained} XP</p>
+              )}
+
               <div className="mt-4 flex gap-3">
-                <button 
-                  onClick={handleNextStep}
-                  className="cyber-button-primary text-sm"
-                >
-                  ✅ 进入下一步 →
-                </button>
+                {unlocked && nextLevel < 3 && !isCompleted && (
+                  <button
+                    onClick={handleNextStep}
+                    className="cyber-button-primary text-sm"
+                  >
+                    ✅ 进入下一步 →
+                  </button>
+                )}
+                {isCorrect && isCompleted && (
+                  <div className="text-neon-green text-sm">
+                    🎉 恭喜完成全部拆解！
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -330,74 +429,84 @@ export default function TaskPage() {
                 <span className="text-2xl">💡</span>
                 <h3 className="text-lg font-bold text-yellow-400">提示</h3>
               </div>
-              <p className="text-gray-300 text-sm">
-                仔细思考题目中的关键信息，尝试用生活中的例子来理解。
-              </p>
+              <p className="text-gray-300 text-sm whitespace-pre-wrap">{hint}</p>
             </div>
           )}
 
-          {/* Level 3: 验证理解 */}
-          {task.current_level >= 3 && task.level_3 && (
-            <div className="cyber-card p-5 border-l-4 border-neon-green">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-2xl">🎯</span>
-                <h3 className="text-lg font-bold text-neon-green">验证理解</h3>
-              </div>
-              <p className="text-gray-300 text-sm mb-4">{task.level_3.question}</p>
-              <div className="space-y-2">
-                {task.level_3.options?.map((option, idx) => (
+          {/* 题解弹窗 */}
+          {showSolution && (
+            <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+              <div className="cyber-card max-w-2xl w-full max-h-[80vh] overflow-auto p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-neon-green">📝 题解</h3>
                   <button
-                    key={idx}
-                    onClick={() => setStudentAnswer(option)}
-                    className={`w-full text-left p-3 rounded-lg border transition-all text-sm ${
-                      studentAnswer === option 
-                        ? 'border-neon-cyan bg-neon-cyan/10 text-white' 
-                        : 'border-gray-700 hover:border-gray-500 text-gray-300'
-                    }`}
+                    onClick={() => setShowSolution(false)}
+                    className="text-gray-400 hover:text-white"
                   >
-                    {option}
+                    ✕
                   </button>
-                ))}
+                </div>
+                <pre className="text-sm text-gray-300 whitespace-pre-wrap font-mono">
+                  {solution}
+                </pre>
               </div>
-              <button
-                onClick={() => handleSubmit(3)}
-                disabled={verifyMutation.isPending}
-                className="cyber-button-primary w-full mt-4"
-              >
-                {verifyMutation.isPending ? '验证中...' : '提交验证'}
-              </button>
             </div>
           )}
 
           {/* 底部操作按钮 */}
           <div className="flex gap-3">
-            <button 
+            <button
               onClick={() => navigate('/')}
               className="cyber-button text-sm text-gray-500"
             >
-              ← 上一步
+              ← 返回
             </button>
             <div className="flex-1" />
-            <button className="cyber-button text-sm text-gray-400">
-              📝 查看题解
-            </button>
-            <button className="cyber-button-primary text-sm">
-              ⭐ 收藏题目
-            </button>
+            {currentLevel >= 1 && !isCompleted && (
+              <>
+                <button
+                  onClick={() => solutionMutation.mutate()}
+                  disabled={solutionMutation.isPending}
+                  className="cyber-button text-sm"
+                >
+                  📝 查看题解
+                </button>
+                <button
+                  onClick={() => favoriteMutation.mutate(isFavorited ? 'unfavorite' : 'favorite')}
+                  className={`cyber-button-primary text-sm ${isFavorited ? 'text-neon-yellow' : ''}`}
+                >
+                  {isFavorited ? '⭐ 已收藏' : '☆ 收藏'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
 
       {/* 完成状态 */}
-      {task.current_level >= 3 && (
+      {isCompleted && (
         <div className="cyber-card p-6 text-center border-neon-green/50 mt-6">
           <div className="text-6xl mb-4">🎉</div>
           <h2 className="text-2xl font-bold text-neon-green mb-2">
             恭喜完成拆解！
           </h2>
-          <p className="text-gray-400">
+          <p className="text-gray-400 mb-4">
             现在你可以尝试自己实现代码了
           </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => solutionMutation.mutate()}
+              className="cyber-button text-sm"
+            >
+              📝 查看题解
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="cyber-button-primary text-sm"
+            >
+              选择下一题
+            </button>
+          </div>
         </div>
       )}
     </div>

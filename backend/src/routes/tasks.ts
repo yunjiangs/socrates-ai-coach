@@ -6,10 +6,11 @@
  */
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { socratesEngine } from '../ai/breakdown.js';
 import { pool } from '../db.js';
 
 export async function routes(fastify: FastifyInstance) {
-  
+
   // ========== 摄入题目 + AI拆解 ==========
   fastify.post('/ingest', async (request: FastifyRequest, reply: FastifyReply) => {
     const { title, content, source, difficulty_level, knowledge_tags } = request.body as {
@@ -27,36 +28,45 @@ export async function routes(fastify: FastifyInstance) {
     // 检查缓存
     const cacheKey = Buffer.from(content).toString('base64').slice(0, 64);
     const [cached] = await pool.query('SELECT * FROM tasks WHERE cache_key = ?', [cacheKey]);
-    
+
     if (Array.isArray(cached) && cached.length > 0) {
-      return reply.send({ 
-        message: 'from_cache',
-        task: cached[0] 
-      });
+      return reply.send({ message: 'from_cache', task_id: (cached[0] as any).id });
     }
 
-    // TODO: 调用AI拆解引擎
-    // const breakdown = await socratesEngine.generateBreakdown(content, difficulty_level, knowledge_tags);
+    let level_1_model = '';
+    let level_2_pseudo = { steps: [] };
+    let level_3_quiz = { question: '', options: [], explanation: '' };
 
-    // 临时模拟AI返回
-    const mockBreakdown = {
-      level_1_model: '这是一个查找配对问题',
-      level_2_pseudo: { steps: [] },
-      level_3_quiz: { question: '', options: [], correct: 0 },
-    };
+    // 调用AI拆解
+    if (socratesEngine.isConfigured()) {
+      try {
+        const breakdown = await socratesEngine.generateBreakdown(
+          content,
+          difficulty_level || 2,
+          knowledge_tags || []
+        );
+        level_1_model = JSON.stringify(breakdown.level_1);
+        level_2_pseudo = breakdown.level_2;
+        level_3_quiz = breakdown.level_3;
+      } catch (error) {
+        fastify.log.error('AI breakdown failed:', error);
+      }
+    }
 
     // 存入数据库
     const [result] = await pool.query(
-      `INSERT INTO tasks (title, content, source, difficulty_level, knowledge_tags, cache_key, ai_breakdown)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tasks (title, content, source, difficulty_level, knowledge_tags, level_1_model, level_2_pseudo, level_3_quiz, cache_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        title, 
-        content, 
-        source || '', 
-        difficulty_level || 1, 
+        title,
+        content,
+        source || '',
+        difficulty_level || 1,
         JSON.stringify(knowledge_tags || []),
+        level_1_model,
+        JSON.stringify(level_2_pseudo),
+        JSON.stringify(level_3_quiz),
         cacheKey,
-        JSON.stringify(mockBreakdown),
       ]
     );
 
@@ -67,30 +77,32 @@ export async function routes(fastify: FastifyInstance) {
     });
   });
 
-  // ========== 获取题目详情(根据学生进度返回对应级别) ==========
+  // ========== 获取题目详情 ==========
   fastify.get<{ Params: { id: string } }>('/:id', async (request, reply) => {
     const { id } = request.params;
     const { student_id } = request.query as { student_id?: number };
 
     const [tasks] = await pool.query('SELECT * FROM tasks WHERE id = ?', [id]);
-    
+
     if (!Array.isArray(tasks) || tasks.length === 0) {
       return reply.status(404).send({ error: 'Task not found' });
     }
 
     const task = tasks[0] as any;
-    let currentLevel = 1;
+    let currentLevel = 0;
     let isLocked = true;
+    let isCompleted = false;
 
     // 如果有学生ID，获取进度
     if (student_id) {
       const [progress] = await pool.query(
-        'SELECT * FROM student_progress WHERE task_id = ? AND student_id = ?',
+        'SELECT * FROM student_progress WHERE task_id = ? AND student_id = ? AND current_level > 0',
         [id, student_id]
       );
-      
+
       if (Array.isArray(progress) && progress.length > 0) {
-        currentLevel = (progress[0] as any).current_level;
+        currentLevel = (progress[0] as any).current_level || 0;
+        isCompleted = (progress[0] as any).is_completed || false;
         isLocked = false;
       }
     }
@@ -100,26 +112,41 @@ export async function routes(fastify: FastifyInstance) {
       id: task.id,
       title: task.title,
       content: task.content,
+      source: task.source,
       difficulty_level: task.difficulty_level,
+      knowledge_tags: typeof task.knowledge_tags === 'string'
+        ? JSON.parse(task.knowledge_tags)
+        : task.knowledge_tags,
       current_level: currentLevel,
+      is_completed: isCompleted,
     };
 
-    // 逐步解锁
-    if (!isLocked || currentLevel >= 1) {
-      response.level_1 = {
-        core_model: task.level_1_model,
-        analogy: '待解锁',
-        real_world_example: '待解锁',
-        key_terms: [],
-      };
-    }
+    // L1: 总是显示（即使未解锁也显示题目描述）
+    response.level_1 = {
+      core_model: task.level_1_model || '',
+      analogy: '',
+      real_world_example: '',
+      key_terms: [],
+    };
 
+    // L2: 解锁2级后显示
     if (currentLevel >= 2) {
-      response.level_2 = task.level_2_pseudo;
+      const l2 = typeof task.level_2_pseudo === 'string'
+        ? JSON.parse(task.level_2_pseudo)
+        : task.level_2_pseudo;
+      response.level_2 = l2;
+    } else {
+      response.level_2 = null;
     }
 
+    // L3: 解锁3级后显示
     if (currentLevel >= 3) {
-      response.level_3 = task.level_3_quiz;
+      const l3 = typeof task.level_3_quiz === 'string'
+        ? JSON.parse(task.level_3_quiz)
+        : task.level_3_quiz;
+      response.level_3 = l3;
+    } else {
+      response.level_3 = null;
     }
 
     return reply.send(response);
@@ -146,8 +173,15 @@ export async function routes(fastify: FastifyInstance) {
 
     const [rows] = await pool.query(query, params);
 
+    const tasks = (rows as any[]).map(t => ({
+      ...t,
+      knowledge_tags: typeof t.knowledge_tags === 'string'
+        ? JSON.parse(t.knowledge_tags)
+        : t.knowledge_tags,
+    }));
+
     return reply.send({
-      tasks: rows,
+      tasks,
       pagination: { limit, offset },
     });
   });
