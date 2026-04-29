@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import ImportTaskModal from '../components/ImportTaskModal';
+import AddTaskModal from '../components/AddTaskModal';
+import ExportReportModal from '../components/ExportReportModal';
+import SystemSettingsModal from '../components/SystemSettingsModal';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -44,6 +47,9 @@ export default function TeacherDashboard() {
   const queryClient = useQueryClient();
   const [teacherId, setTeacherId] = useState<number>(1); // 演示用
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // 获取班级数据
   const { data: classData } = useQuery<ClassData>({
@@ -273,22 +279,22 @@ export default function TeacherDashboard() {
           <h2 className="text-xl font-bold text-neon-purple mb-4">⚡ 快捷操作</h2>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button className="p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 text-center transition-colors">
+            <button onClick={() => setShowAddModal(true)} className="p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 text-center transition-colors cursor-pointer">
               <div className="text-2xl mb-2">📝</div>
               <div className="text-sm text-gray-300">添加题目</div>
             </button>
-            <button 
+            <button
               onClick={() => setShowImportModal(true)}
               className="p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 text-center transition-colors cursor-pointer"
             >
               <div className="text-2xl mb-2">📤</div>
               <div className="text-sm text-gray-300">批量导入</div>
             </button>
-            <button className="p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 text-center transition-colors">
+            <button onClick={() => setShowExportModal(true)} className="p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 text-center transition-colors cursor-pointer">
               <div className="text-2xl mb-2">📊</div>
               <div className="text-sm text-gray-300">导出报告</div>
             </button>
-            <button className="p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 text-center transition-colors">
+            <button onClick={() => setShowSettingsModal(true)} className="p-4 rounded-lg bg-cyber-dark hover:bg-cyber-dark/80 text-center transition-colors cursor-pointer">
               <div className="text-2xl mb-2">⚙️</div>
               <div className="text-sm text-gray-300">系统设置</div>
             </button>
@@ -303,6 +309,27 @@ export default function TeacherDashboard() {
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['tasks'] });
         }}
+      />
+
+      {/* 添加题目Modal */}
+      <AddTaskModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={(taskId) => {
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        }}
+      />
+
+      {/* 导出报告Modal */}
+      <ExportReportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+      />
+
+      {/* 系统设置Modal */}
+      <SystemSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
       />
 
       {/* Footer */}

@@ -41,6 +41,8 @@ export default function TaskPage() {
   const [nextLevel, setNextLevel] = useState(0);
   const [isFavorited, setIsFavorited] = useState(false);
   const [xpGained, setXpGained] = useState(0);
+  const [showAchievement, setShowAchievement] = useState(false);
+  const [newAchievement, setNewAchievement] = useState<any>(null);
 
   // 计时器
   useEffect(() => {
@@ -80,6 +82,8 @@ export default function TaskPage() {
       setShowHint(false);
       if (data.is_completed) {
         queryClient.invalidateQueries({ queryKey: ['task', taskId, DEMO_STUDENT_ID] });
+        // 完成后检查是否解锁了新成就
+        checkNewAchievements();
       }
     },
   });
@@ -115,6 +119,30 @@ export default function TaskPage() {
       alert(err?.response?.data?.error || '无法获取题解');
     },
   });
+
+  // 获取已解锁成就 mutation
+  const achievementsQuery = useQuery({
+    queryKey: ['achievements', DEMO_STUDENT_ID],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE}/achievements/student/${DEMO_STUDENT_ID}`);
+      return res.data;
+    },
+    enabled: !!taskId,
+  });
+
+  // 检查是否解锁了新成就
+  const checkNewAchievements = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/achievements/student/${DEMO_STUDENT_ID}`);
+      const achievements = res.data.achievements || [];
+      // 找出刚刚解锁的成就（难度不高但未完成的）
+      const justUnlocked = achievements.find((a: any) => a.unlocked && !a.claimed);
+      if (justUnlocked) {
+        setNewAchievement(justUnlocked);
+        setShowAchievement(true);
+      }
+    } catch { /* ignore */ }
+  };
 
   // 收藏 mutation
   const favoriteMutation = useMutation({
@@ -505,6 +533,23 @@ export default function TaskPage() {
               className="cyber-button-primary text-sm"
             >
               选择下一题
+            </button>
+          </div>
+        </div>
+      )}
+      {/* 成就解锁弹窗 */}
+      {showAchievement && newAchievement && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 achievement-unlock-modal">
+          <div className="cyber-card max-w-sm w-full p-8 text-center">
+            <div className="text-6xl mb-4 achievement-icon">🏆</div>
+            <div className="text-xs text-neon-yellow uppercase tracking-widest mb-2">成就解锁</div>
+            <h3 className="text-2xl font-bold text-neon-cyan mb-2">{newAchievement.name}</h3>
+            <p className="text-gray-400 text-sm mb-6">{newAchievement.description}</p>
+            <button
+              onClick={() => setShowAchievement(false)}
+              className="cyber-button-primary w-full"
+            >
+              太棒了！
             </button>
           </div>
         </div>

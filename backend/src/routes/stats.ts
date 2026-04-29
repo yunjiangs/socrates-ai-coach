@@ -7,6 +7,8 @@
 
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { pool } from '../db.js';
+import { pipeline } from 'stream';
+import { promisify } from 'util';
 
 export async function routes(fastify: FastifyInstance) {
 
@@ -173,6 +175,82 @@ export async function routes(fastify: FastifyInstance) {
       );
 
       return reply.send({ success: true });
+    }
+  );
+
+  // ========== 导出报告 ==========
+  fastify.get<{ Querystring: { type: string; format: string; class_id: number } }>(
+    '/export',
+    async (request, reply) => {
+      const { type, format, class_id } = request.query;
+
+      let data: any[] = [];
+      let filename = '';
+
+      if (type === 'students' || type === 'full') {
+        // 导出学生学习报告
+        const [rows] = await pool.query(
+          `SELECT s.id, s.nickname, s.username,
+                  COUNT(p.id) as tasks_completed,
+                  COALESCE(SUM(p.total_time_seconds), 0) as total_time,
+                  COALESCE(AVG(p.total_time_seconds), 0) as avg_time,
+                  COUNT(DISTINCT CASE WHEN p.is_completed = TRUE THEN p.task_id END) as completed_count
+           FROM students s
+           LEFT JOIN student_progress p ON s.id = p.student_id
+           WHERE s.class_id = ?
+           GROUP BY s.id`,
+          [class_id || 1]
+        );
+        data = rows as any[];
+        filename = `students_report_${Date.now()}`;
+      }
+
+      if (type === 'tasks' || type === 'full') {
+        // 导出题目完成情况
+        const [rows] = await pool.query(
+          `SELECT t.id, t.title, t.difficulty_level, t.source,
+                  COUNT(DISTINCT sp.student_id) as completion_count,
+                  COUNT(DISTINCT CASE WHEN sp.is_completed = TRUE THEN sp.student_id END) as passed_count
+           FROM tasks t
+           LEFT JOIN student_progress sp ON t.id = sp.task_id
+           GROUP BY t.id`
+        );
+        data = rows as any[];
+        filename = `tasks_report_${Date.now()}`;
+      }
+
+      if (format === 'json') {
+        return reply
+          .header('Content-Type', 'application/json')
+          .header('Content-Disposition', `attachment; filename="${filename}.json"`)
+          .send(data);
+      }
+
+      // CSV格式
+      if (data.length === 0) {
+        return reply
+          .header('Content-Type', 'text/csv')
+          .header('Content-Disposition', `attachment; filename="${filename}.csv"`)
+          .send('No data');
+      }
+
+      const headers = Object.keys(data[0]);
+      const csvRows = [
+        headers.join(','),
+        ...data.map(row =>
+          headers.map(h => {
+            const val = (row as any)[h];
+            const str = val === null || val === undefined ? '' : String(val);
+            // 转义引号和换行
+            return `"${str.replace(/"/g, '""').replace(/\n/g, ' ')}"`;
+          }).join(',')
+        ),
+      ];
+
+      return reply
+        .header('Content-Type', 'text/csv; charset=utf-8')
+        .header('Content-Disposition', `attachment; filename="${filename}.csv"`)
+        .send('\ufeff' + csvRows.join('\n'));
     }
   );
 }
