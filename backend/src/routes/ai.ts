@@ -38,7 +38,7 @@ export async function aiBreakdownRouter(fastify: FastifyInstance) {
         breakdown,
       });
     } catch (error) {
-      fastify.log.error('AI breakdown failed:', error);
+      fastify.log.error({ err: error }, 'AI breakdown failed');
       return reply.status(500).send({
         error: 'AI breakdown failed',
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -69,7 +69,7 @@ export async function aiBreakdownRouter(fastify: FastifyInstance) {
       const result = await socratesEngine.verifyAnswer(student_answer, correct_approach);
       return reply.send(result);
     } catch (error) {
-      fastify.log.error('AI verify failed:', error);
+      fastify.log.error({ err: error }, 'AI verify failed');
       return reply.status(500).send({
         error: 'AI verify failed',
       });

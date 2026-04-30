@@ -53,80 +53,80 @@ interface VerificationFeedback {
   next_step?: number;
 }
 
-// ========== Prompt 模板 ==========
+// ========== Prompt 模板 - 简体中文 ==========
 
-const LEVEL1_PROMPT = `題目：{problem}
-難度：{difficulty}
-知識點：{knowledge_points}
+const LEVEL1_PROMPT = `题目：{problem}
+难度：{difficulty}
+知识点：{knowledge_points}
 
-請生成"邏輯建模層"內容，用JSON格式：
+请生成"逻辑建模层"内容，用JSON格式：
 {
-  "core_model": "核心模型分析(50字內)",
-  "analogy": "一個生活類比解釋這個問題的背景",
-  "real_world_example": "一個現實世界的例子",
-  "key_terms": ["關鍵術語1", "關鍵術語2"]
+  "core_model": "核心模型分析(50字内)",
+  "analogy": "一个生活类比解释这个问题的背景",
+  "real_world_example": "一个现实世界的例子",
+  "key_terms": ["关键术语1", "关键术语2"]
 }
 
 要求：
-- 類比要貼近中小學生的日常生活
-- 不要用編程術語，用生活語言`;
+- 类比要贴近中小学生的日常生活
+- 不用编程术语，用生活语言`;
 
-const LEVEL2_PROMPT = `題目：{problem}
-難度：{difficulty}
+const LEVEL2_PROMPT = `题目：{problem}
+难度：{difficulty}
 
-請把解題過程拆成3-5個步驟，每步包含：
-1. 標題（簡潔）
-2. 具體要做什麼
-3. 卡住時的提示
-4. 涉及的知識點（可選）
+请把解题过程拆成3-5个步骤，每步包含：
+1. 标题（简洁）
+2. 具体要做什么
+3. 卡住时的提示
+4. 涉及的知识点（可选）
 
 用JSON格式：
 {
   "steps": [
     {
       "id": 1,
-      "title": "步驟標題",
-      "content": "具體要做什麼",
-      "hint": "卡住時的提示",
-      "knowledge_point": "涉及的知識點"
+      "title": "步骤标题",
+      "content": "具体要做什么",
+      "hint": "卡住时的提示",
+      "knowledge_point": "涉及的知识点"
     }
   ]
 }`;
 
-const LEVEL3_PROMPT = `題目：{problem}
-難度：{difficulty}
-算法步驟：{steps}
+const LEVEL3_PROMPT = `题目：{problem}
+难度：{difficulty}
+算法步骤：{steps}
 
-請生成一個"互動驗證題"，用於檢查學生是否真正理解了算法的核心邏輯。
+请生成一个"互动验证题"，用于检查学生是否真正理解了算法的核心逻辑。
 
 要求：
-- 題目要能測試學生是否真正理解，而不是死記硬背
-- 選項要有層次感，不能太明顯
-- 正確答案要合理
+- 题目要能测试学生是否真正理解，而不是死记硬背
+- 选项要有层次感，不能太明显
+- 正确答案要合理
 
 JSON格式：
 {
-  "question": "驗證問題內容",
-  "options": ["選項1", "選項2", "選項3", "選項4"],
+  "question": "验证问题内容",
+  "options": ["选项1", "选项2", "选项3", "选项4"],
   "correct_index": 0,
-  "explanation": "為什麼這個是正確答案"
+  "explanation": "为什么这个是正确答案"
 }`;
 
-const VERIFY_PROMPT = `學生的回答：{student_answer}
-正確的思路應該是：{correct_approach}
+const VERIFY_PROMPT = `学生的回答：{student_answer}
+正确的思路应该是：{correct_approach}
 
-請判斷學生的理解是否正確。
+请判断学生的理解是否正确。
 
 要求：
-- 語義匹配不要太死板
-- 允許學生用通俗語言描述
-- 如果方向正確但表述不精確，也要給予肯定
+- 语义匹配不要太死板
+- 允许学生用通俗语言描述
+- 如果方向正确但表述不精确，也要给予肯定
 
 JSON格式：
 {
   "is_correct": true/false,
-  "feedback": "針對學生答案的反饋",
-  "hint": "如果不正確，給的下一步提示"
+  "feedback": "针对学生答案的反馈",
+  "hint": "如果不正确，给的下一步提示"
 }`;
 
 // ========== AI 工具函数 ==========
@@ -136,6 +136,8 @@ async function aiCall(prompt: string): Promise<string> {
     model: 'MiniMax-M2.7',
     max_tokens: 2000,
     messages: [{ role: 'user', content: prompt }],
+    // @ts-ignore
+    thinking: { type: 'disabled' },
   });
 
   let text = '';
@@ -144,13 +146,11 @@ async function aiCall(prompt: string): Promise<string> {
       text += block.text;
     }
   }
-  return text;
+  return text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
 }
 
 function parseJSON<T>(text: string): T {
-  // 去掉 markdown 代码块
-  const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-  return JSON.parse(cleaned) as T;
+  return JSON.parse(text) as T;
 }
 
 // ========== SocratesEngine ==========
@@ -170,7 +170,7 @@ class SocratesEngine {
     difficulty: number,
     knowledgePoints: string[]
   ): Promise<BreakdownResult> {
-    const knowledgeStr = knowledgePoints.join(', ') || '基礎算法';
+    const knowledgeStr = knowledgePoints.join(', ') || '基础算法';
 
     // Level 1
     const l1Prompt = LEVEL1_PROMPT
@@ -229,24 +229,24 @@ class SocratesEngine {
     problemDescription: string,
     level1Model: string
   ): Promise<{ is_correct: boolean; feedback: string }> {
-    const prompt = `學生提交了以下代碼：
+    const prompt = `学生提交了以下代码：
 ${studentCode}
 
-題目描述：
+题目描述：
 ${problemDescription}
 
-解題思路提示：
+解题思路提示：
 ${level1Model}
 
-請檢查學生代碼是否符合題目要求（邏輯正確、邊界處理、命名規範）。
+请检查学生代码是否符合题目要求（逻辑正确、边界处理、命名规范）。
 只返回JSON格式：
-{"is_correct": true/false, "feedback": "具體反饋"}`;
+{"is_correct": true/false, "feedback": "具体反馈"}`;
 
     try {
       const text = await aiCall(prompt);
       return parseJSON(text);
     } catch {
-      return { is_correct: false, feedback: '代碼校驗失敗' };
+      return { is_correct: false, feedback: '代码校验失败' };
     }
   }
 
@@ -258,18 +258,18 @@ ${level1Model}
     level1Model: string,
     level2Pseudo: string
   ): Promise<string> {
-    const prompt = `題目：${problemDescription}
+    const prompt = `题目：${problemDescription}
 
-解題思路：${level1Model}
+解题思路：${level1Model}
 
-算法步驟：${level2Pseudo}
+算法步骤：${level2Pseudo}
 
-請生成一份完整的題解，包含：代碼實現、思維解釋、複雜度分析。用中文回覆。`;
+请生成一份完整的题解，包含：代码实现、思路解释、复杂度分析。用中文回复。`;
 
     try {
       return await aiCall(prompt);
     } catch {
-      return '題解生成失敗';
+      return '题解生成失败';
     }
   }
 
@@ -281,16 +281,16 @@ ${level1Model}
     level1Model: string,
     level: string
   ): Promise<string> {
-    const prompt = `題目：${problemDescription}
-當前級別：${level}
-解題思路：${level1Model}
+    const prompt = `题目：${problemDescription}
+当前级别：${level}
+解题思路：${level1Model}
 
-請生成一個引導性的提示，幫助學生自己思考出答案。不要直接給答案。`;
+请生成一个引导性的提示，帮助学生自己思考出答案。不要直接给答案。`;
 
     try {
       return await aiCall(prompt);
     } catch {
-      return '提示生成失敗';
+      return '提示生成失败';
     }
   }
 

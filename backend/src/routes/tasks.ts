@@ -34,8 +34,8 @@ export async function routes(fastify: FastifyInstance) {
     }
 
     let level_1_model = '';
-    let level_2_pseudo = { steps: [] };
-    let level_3_quiz = { question: '', options: [], explanation: '' };
+    let level_2_pseudo: any = { steps: [] };
+    let level_3_quiz: any = { question: '', options: [], explanation: '' };
 
     // 调用AI拆解
     if (socratesEngine.isConfigured()) {
@@ -49,7 +49,7 @@ export async function routes(fastify: FastifyInstance) {
         level_2_pseudo = breakdown.level_2;
         level_3_quiz = breakdown.level_3;
       } catch (error) {
-        fastify.log.error('AI breakdown failed:', error);
+        fastify.log.error({ err: error }, 'AI breakdown failed');
       }
     }
 
@@ -122,12 +122,10 @@ export async function routes(fastify: FastifyInstance) {
     };
 
     // L1: 总是显示（即使未解锁也显示题目描述）
-    response.level_1 = {
-      core_model: task.level_1_model || '',
-      analogy: '',
-      real_world_example: '',
-      key_terms: [],
-    };
+    const l1 = typeof task.level_1_model === 'string'
+      ? JSON.parse(task.level_1_model)
+      : task.level_1_model;
+    response.level_1 = l1 || { core_model: '', analogy: '', real_world_example: '', key_terms: [] };
 
     // L2: 解锁2级后显示
     if (currentLevel >= 2) {
