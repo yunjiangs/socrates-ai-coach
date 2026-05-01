@@ -13,6 +13,7 @@ interface Achievement {
   condition_type: string;
   condition_value: number;
   xp_reward: number;
+  display_order?: number;
   unlocked_at?: string;
   progress?: number;
   is_unlocked?: boolean;
@@ -81,7 +82,7 @@ export default function AchievementsPage() {
       }])).values()).sort((a, b) => {
         if (a.is_unlocked && !b.is_unlocked) return -1;
         if (!a.is_unlocked && b.is_unlocked) return 1;
-        return a.display_order - b.display_order;
+        return (a.display_order || 0) - (b.display_order || 0);
       });
 
       setAchievements(unique);

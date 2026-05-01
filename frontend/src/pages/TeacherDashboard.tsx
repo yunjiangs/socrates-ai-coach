@@ -55,8 +55,8 @@ export default function TeacherDashboard() {
   const { data: classData } = useQuery<ClassData>({
     queryKey: ['class', teacherId],
     queryFn: async () => {
-      // 演示：返回固定班级
-      return { id: 1, name: '信奥入门班', student_count: 2 };
+      const res = await axios.get(`${API_BASE}/stats/class/1`);
+      return res.data.class;
     },
     enabled: !!teacherId,
   });
@@ -65,37 +65,8 @@ export default function TeacherDashboard() {
   const { data: alertsData, refetch: refetchAlerts } = useQuery<{ alerts: Alert[] }>({
     queryKey: ['alerts', teacherId],
     queryFn: async () => {
-      // 演示：返回模拟数据
-      return {
-        alerts: [
-          { 
-            id: 1, 
-            student_id: 2, 
-            student_name: '小明同学', 
-            task_id: 1, 
-            task_title: '两数之和', 
-            message: '在"哈希表"逻辑上停留超过10分钟',
-            alert_type: 'long_time',
-            stay_minutes: 12,
-            attempt_count: 3,
-            is_read: false,
-            created_at: new Date().toISOString()
-          },
-          { 
-            id: 2, 
-            student_id: 3, 
-            student_name: '小红同学', 
-            task_id: 2, 
-            task_title: '斐波那契', 
-            message: '验证题尝试了5次才通过',
-            alert_type: 'failed_many',
-            stay_minutes: 8,
-            attempt_count: 5,
-            is_read: false,
-            created_at: new Date().toISOString()
-          },
-        ] as Alert[]
-      };
+      const res = await axios.get(`${API_BASE}/stats/alerts/${teacherId}`);
+      return { alerts: res.data.alerts || [] };
     },
     enabled: !!teacherId,
   });
@@ -104,13 +75,8 @@ export default function TeacherDashboard() {
   const { data: studentsData, refetch: refetchStudents } = useQuery<{ students: Student[] }>({
     queryKey: ['class-students', classData?.id],
     queryFn: async () => {
-      // 演示：返回模拟学生数据
-      return {
-        students: [
-          { id: 2, username: 'demo_student1', nickname: '小明同学', tasks_completed: 1, total_time_minutes: 45 },
-          { id: 3, username: 'demo_student2', nickname: '小红同学', tasks_completed: 1, total_time_minutes: 30 },
-        ] as Student[]
-      };
+      const res = await axios.get(`${API_BASE}/stats/class/${classData?.id}`);
+      return { students: res.data.students || [] };
     },
     enabled: !!classData?.id,
   });
@@ -119,13 +85,13 @@ export default function TeacherDashboard() {
   const { data: statsData } = useQuery<StatsData>({
     queryKey: ['class-stats', classData?.id],
     queryFn: async () => {
-      // 演示：返回模拟统计
-      const students = studentsData?.students || [];
+      const res = await axios.get(`${API_BASE}/stats/class/${classData?.id}`);
+      const students = res.data.students || [];
       return {
         total_students: students.length,
-        tasks_completed: students.reduce((sum, s) => sum + (s.tasks_completed || 0), 0),
-        total_time_minutes: students.reduce((sum, s) => sum + (s.total_time_minutes || 0), 0),
-        avg_pass_rate: 78,
+        tasks_completed: students.reduce((sum: number, s: any) => sum + (s.tasks_completed || 0), 0),
+        total_time_minutes: students.reduce((sum: number, s: any) => sum + (s.total_time_minutes || 0), 0),
+        avg_pass_rate: res.data.summary?.avg_completion || 0,
       };
     },
     enabled: !!studentsData,

@@ -433,7 +433,7 @@ export default function TaskPage() {
               )}
 
               <div className="mt-4 flex gap-3">
-                {unlocked && nextLevel < 3 && !isCompleted && (
+                {unlocked && !isCompleted && (
                   <button
                     onClick={handleNextStep}
                     className="cyber-button-primary text-sm"

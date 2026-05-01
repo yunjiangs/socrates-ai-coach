@@ -7,10 +7,12 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api';
 interface Problem {
   id: number;
   title: string;
-  difficulty: string;
-  completedAt?: string;
-  stayMinutes?: number;
-  xpEarned?: number;
+  status?: 'completed' | 'in_progress' | 'stuck';
+  minutes?: number;
+  xp?: number;
+  time?: string;
+  step?: string;
+  difficulty?: string;
 }
 
 interface WeakTag {

@@ -88,14 +88,14 @@ export async function routes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { classId } = request.params;
 
-      // 获取班级学生列表
+      // 获取班级学生列表（排除老师）
       const [students] = await pool.query(
         `SELECT s.id, s.nickname, 
                 COUNT(p.id) as tasks_completed,
                 SUM(p.total_time_seconds) as total_time
          FROM students s
          LEFT JOIN student_progress p ON s.id = p.student_id AND p.is_completed = TRUE
-         WHERE s.class_id = ?
+         WHERE s.class_id = ? AND s.role = 'student'
          GROUP BY s.id`,
         [classId]
       );

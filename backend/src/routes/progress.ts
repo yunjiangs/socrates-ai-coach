@@ -34,19 +34,19 @@ export async function routes(fastify: FastifyInstance) {
     const task = (tasks[0] as any);
 
     // 获取或创建进度
-    const progressRows = await pool.query(
+    const [existingProgress] = await pool.query(
       'SELECT * FROM student_progress WHERE task_id = ? AND student_id = ?',
       [task_id, student_id]
     ) as any;
 
-    let progress = progressRows[0];
+    let progress = existingProgress[0];
     if (!progress) {
       const [insertResult] = await pool.query(
         'INSERT INTO student_progress (task_id, student_id, current_level, stay_log) VALUES (?, ?, 1, ?)',
         [task_id, student_id, JSON.stringify([])]
-      );
+      ) as any;
       progress = {
-        id: (insertResult as any).insertId,
+        id: insertResult.insertId,
         current_level: 1,
         total_time_seconds: 0,
         stay_log: [],
@@ -271,17 +271,68 @@ export async function routes(fastify: FastifyInstance) {
     const { student_id, task_id, action } = request.body;
 
     if (action === 'favorite') {
-      await pool.query(
-        `INSERT IGNORE INTO student_progress (task_id, student_id, current_level, stay_log)
-         VALUES (?, ?, 0, '[]')`,
-        [task_id, student_id]
-      );
+      // First check if there's an existing record with real progress
+      const [existing] = await pool.query(
+        'SELECT id, current_level, is_completed FROM student_progress WHERE student_id = ? AND task_id = ?',
+        [student_id, task_id]
+      ) as any;
+
+      if (existing && existing.length > 0) {
+        // Record exists - update to mark as favorited (current_level = 0)
+        // Store the previous level info in stay_log for potential restore
+        const prev = existing[0];
+        const prevLevel = prev.is_completed ? 3 : (prev.current_level || 1);
+        await pool.query(
+          `UPDATE student_progress SET current_level = 0, 
+           stay_log = JSON_OBJECT('prev_level', ?, 'was_completed', ?) 
+           WHERE student_id = ? AND task_id = ?`,
+          [prevLevel, prev.is_completed ? 1 : 0, student_id, task_id]
+        );
+      } else {
+        // No existing record - create new favorite record
+        await pool.query(
+          `INSERT INTO student_progress (task_id, student_id, current_level, stay_log)
+           VALUES (?, ?, 0, '[]')`,
+          [task_id, student_id]
+        );
+      }
       return reply.send({ success: true, favorited: true });
     } else {
-      await pool.query(
-        'DELETE FROM student_progress WHERE student_id = ? AND task_id = ? AND current_level = 0',
+      // Unfavorite - restore to previous state
+      const [existing] = await pool.query(
+        'SELECT stay_log, is_completed FROM student_progress WHERE student_id = ? AND task_id = ?',
         [student_id, task_id]
-      );
+      ) as any;
+
+      if (existing && existing.length > 0) {
+        const rec = existing[0];
+        let prevLevel = 1;
+        let wasCompleted = false;
+
+        // Try to restore from stay_log
+        if (rec.stay_log) {
+          try {
+            const log = typeof rec.stay_log === 'string' ? JSON.parse(rec.stay_log) : rec.stay_log;
+            if (log.prev_level) prevLevel = log.prev_level;
+            if (log.was_completed) wasCompleted = true;
+          } catch {}
+        }
+
+        if (prevLevel === 0) {
+          // Pure favorite that never had progress - delete the record entirely
+          await pool.query(
+            'DELETE FROM student_progress WHERE student_id = ? AND task_id = ?',
+            [student_id, task_id]
+          );
+        } else {
+          // Had real progress - restore to previous level
+          await pool.query(
+            `UPDATE student_progress SET current_level = ?, is_completed = ?, stay_log = '[]'
+             WHERE student_id = ? AND task_id = ?`,
+            [prevLevel, wasCompleted ? 1 : 0, student_id, task_id]
+          );
+        }
+      }
       return reply.send({ success: true, favorited: false });
     }
   });
